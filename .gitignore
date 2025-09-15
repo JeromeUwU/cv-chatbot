@@ -1,0 +1,11 @@
+# Secrets (ne jamais pousser)
+.env
+.streamlit/secrets.toml
+
+# Fichiers locaux
+__pycache__/
+*.pyc
+.DS_Store
+
+# (Option) CV privé en local
+cv.pdf
