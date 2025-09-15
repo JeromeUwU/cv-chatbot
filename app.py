@@ -170,7 +170,7 @@ if asked >= MAX_QUESTIONS:
 
 #  En-tête + compteur + verrou
 
-st.title("💼 CV Chatbot — Jérôme TAM")
+st.title("💼 CV — Jérôme TAM")
 st.caption("Streamlit + Groq (stream). Limite stricte à 10 questions par session.")
 
 remaining = max(0, MAX_QUESTIONS - asked)
