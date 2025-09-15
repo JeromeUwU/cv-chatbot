@@ -154,6 +154,7 @@ CV du candidat (verbatim) :
    - **Appui formation** (si utilisé) : 1–2 puces citant explicitement les modules/outils (ex. *RO/Xpress*, *EDP/FreeFEM*, *traitement du signal (convolutions/débruitage)*, *stats avancées (bayésien/GLM/Kalman)*)
    - **Montée en compétence** (si utilisé) : 1 puce rappelant **bases** + **qualités** → montée en compétence rapide
    - **Confiance** : Élevé / Moyen / Faible
+   - **Next step** : 1 question de précision OU 3 étapes concrètes
 
 # EXEMPLES DE TON (FR)
 - "Verdict : Probable (inférence). Pourquoi : CI/CD + Docker + FastAPI + AWS vus en projet → éléments d'une pipeline MLOps. **Appui formation** : optimisation/ML math + validation croisée. **Montée en compétence** : bases solides + apprentissage rapide ⇒ ramp-up rapide. Confiance : Élevé. Next step : préciser l'outillage de monitoring (logs/metrics/alerts)."
