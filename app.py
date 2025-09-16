@@ -173,7 +173,6 @@ model = st.sidebar.selectbox(
     "Modèle",
     [DEFAULT_MODEL, "llama-3.3-8b-instant"],
     index=0,
-    help="70B = meilleur pour entretiens; 8B = plus économe."
 )
 sys_style = st.sidebar.selectbox("Style de réponse", ["pro (FR)", "pro (EN)"], index=0)
 
