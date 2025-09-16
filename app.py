@@ -231,7 +231,8 @@ with st.expander("💡 Suggestions", expanded=True):
         "Réponses types : forces, faiblesses, prétentions salariales.",
         "Donne 3 exemples STAR (Situation/Tâche/Action/Résultat).",
         "Pitch FR puis traduction EN.",
-        "Liste des projets concrets de Jérôme (avec métriques)."
+        "Liste des projets concrets de Jérôme (avec métriques).",
+        "Expertise de Jérôme (simplifié)."
     ]
     for i, ex in enumerate(examples):
         if cols[i % 3].button(ex, use_container_width=True, key=f"sugg_{i}", disabled=disabled_all):
