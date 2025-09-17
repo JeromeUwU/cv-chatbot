@@ -169,11 +169,6 @@ CV du candidat (verbatim) :
 # UI — Sidebar
 st.sidebar.title("⚙️ Options")
 
-model = st.sidebar.selectbox(
-    "Modèle",
-    [DEFAULT_MODEL, "llama-3.3-8b-instant"],
-    index=0,
-)
 sys_style = st.sidebar.selectbox("Style de réponse", ["pro (FR)", "pro (EN)"], index=0)
 
 
@@ -199,7 +194,7 @@ if asked >= MAX_QUESTIONS:
 #  En-tête + compteur + verrou
 
 st.title("💼 CV — Jérôme TAM")
-st.caption("Streamlit + Groq (stream). Limite stricte à 10 questions par session.")
+st.caption("Limite stricte à 10 questions par session.")
 
 remaining = max(0, MAX_QUESTIONS - asked)
 st.info(f"Questions restantes : **{remaining}/{MAX_QUESTIONS}**")
@@ -285,7 +280,7 @@ if prompt:
 
             with st.chat_message("assistant"):
                 stream_area = st.empty()
-                chunks = stream_groq(st.session_state.messages, model)
+                chunks = stream_groq(st.session_state.messages, DEFAULT_MODEL)
                 full = stream_area.write_stream(chunks)
 
             st.session_state.messages.append({"role": "assistant", "content": full})
