@@ -21,147 +21,50 @@ MAX_QUESTIONS = 10
 
 
 
-# Thèmes généraux d'entretien (FR/EN)
-TECH_WHITELIST = {
-    
-    "cv","profil","expérience","experiences","projet","projets","compétence","competences","skills",
-    "salaire","prétentions","pretentions","forces","faiblesses","disponibilité","mobilité","education",
-    "formation","langues","github","linkedin","portfolio","dispo","contrat","stage","alternance",
-    "freelance","cdi","cdd","mission",
-   
-    "groq","streamlit","fastapi","aws","ec2","s3","rds","docker","pytorch","xgboost","lightgbm","prophet",
-    "arima","sql","postgresql","llm","rag","lora","quantization","vision","vit","conformer","wav2vec",
-    "vq","gumbel","diffusion","unet","kalalodata","activus","rsna","recipeprep","app","ios","kaggle",
-    "weaviate","langchain","langgraph","mops","mlops","we","w&b","weights","biases","power bi","tableau"
-}
-
-GENERAL_INTERVIEW_TERMS = {
-    "soft skills","culture fit","work style","under pressure","teamwork","communication","leadership","ownership",
-    "problem solving","problem-solving","conflict","deadline","stress","adaptability","autonomy","collaboration",
-    "motivation","learning","feedback","prioritization","time management","stakeholder","mentoring","pair programming","team","work",
-    
-    "sous pression","travail en équipe","communication","leadership","problème","résolution de problème","conflit",
-    "échéance","stress","adaptabilité","autonomie","collaboration","motivation","apprentissage","priorisation",
-    "gestion du temps","parties prenantes","encadrement","mentorat","culture","valeurs","éthique","équipe","equipe","travail",
-    "temps","gestion","proposition","esprit","integration","Pitch","pitch","candidat","Candidat","Jerome","Jérôme","Peut-il","peut-il",
-    "peut il","peut","est ce que","sait il","sait",'problem'
-}
-
-
-TECH_CAPABILITY_TERMS = {
-    "mlops","pipeline","ml pipeline","workflow","cicd","monitoring","observability","testing","unit tests",
-    "design","architecture","scalability","security","privacy","data quality","feature store",
-    "serving","deployment","inference","latency","cost optimization",
-  
-    "chaîne ml","chaîne de ml","déploiement","surveillance","observabilité","tests","architecture","scalabilité",
-    "sécurité","confidentialité","qualité des données","magasin de features","serving","inférence","latence","coût"
-}
-
-
-SOFT_SKILL_PATTERNS = [
-    r"bon\s+.*sous\s+pression", r"work(ing)?\s+under\s+pressure",
-    r"(soft\s*skills?|compétences\s+comportementales?)",
-    r"communication|communicant|communication skills",
-    r"(team|équipe).*(player|travail)", r"leadership",
-    r"(gestion|management)\s+du\s+temps|time\s+management",
-    r"résolution\s+de\s+probl(è|e)me|problem[-\s]*solving",
-    r"adaptabilit(é|e)|adaptability", r"motivation|motivated",
-]
-
-
-def extract_keywords(text: str) -> set:
-    words = re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿ0-9\-\+]{3,}", text.lower())
-    freq = {}
-    for w in words:
-        if w.isdigit():
-            continue
-        freq[w] = freq.get(w, 0) + 1
-    top = {w for (w, c) in freq.items() if c >= 2}
-    return top
-
-CV_TERMS = extract_keywords(CV_TEXT)
-
-ALLOWED_TERMS = (
-    set(w.lower() for w in TECH_WHITELIST)
-    | set(w.lower() for w in GENERAL_INTERVIEW_TERMS)
-    | set(w.lower() for w in TECH_CAPABILITY_TERMS)
-    | CV_TERMS
-)
-
-def always_allow(query: str) -> bool:
-    q = query.lower()
-   
-    for pat in SOFT_SKILL_PATTERNS:
-        if re.search(pat, q):
-            return True
- 
-    if ("candidat" in q or "candidate" in q) and any(k in q for k in [
-        "bon","good","peut","can","sait","know","capable","able","compétent","competent"
-    ]):
-        return True
-
-    toks = set(re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿ0-9\-\+]{3,}", q))
-    if toks & (GENERAL_INTERVIEW_TERMS | TECH_CAPABILITY_TERMS):
-        return True
-    return False
-
-GATE_THRESHOLD = 0.05
-
-def is_on_topic(query: str, threshold: float = GATE_THRESHOLD) -> bool:
-    if always_allow(query):
-        return True
-    q_tokens = set(re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿ0-9\-\+]{3,}", query.lower()))
-    if not q_tokens:
-        return False
-    overlap = len(q_tokens & ALLOWED_TERMS) / max(1, len(q_tokens))
-    return overlap >= threshold
-
-
 
 # System prompt 
 def build_system_prompt(cv_text: str, style: str) -> str:
-    cv_snippet = cv_text[:6000]  # limiter les tokens
+    cv_snippet = cv_text[:6000]  # limite tokens
     base = f"""
-Tu es un assistant d'entretien qui répond STRICTEMENT à partir du CV ci-dessous (expériences, projets, **formation**).
-Langue: FR si l'utilisateur parle FR; sinon EN. Style concis, concret, structuré (bullets OK).
+Tu joues le rôle du candidat dont le CV suit, et tu réponds comme en entretien.
+- Langue: si l'interlocuteur parle français → réponds en **je** en français naturel; sinon en anglais avec **I**.
+- Ton: bref, chaleureux, professionnel; phrases naturelles; pas de jargon inutile; 3–6 bullets max si utile.
+- Quand on te demande "peux-tu faire X ?" :
+  1) Si l'information est **clairement présente** dans le CV → réponds **oui**/**non** simplement, puis illustre en 2–4 points concrets tirés du CV (expériences, projets, outils).
+  2) Si **ce n'est pas mentionné** dans le CV → dis-le simplement: "D’après mon CV, je n’ai pas encore pratiqué X."
+     - Ensuite, fais un **pont crédible**: "En revanche, j’ai [compétence/formation voisine Y] qui s’en rapproche (par ex. ...)."
+     - Conclus humainement : "Je peux monter vite en compétence" (+ 1 phrase sur ta démarche: apprendre vite, documenter, demander un cadrage, livrer un POC).
+  3) Si la question est trop vague → pose **une seule** question de clarification.
+- Interdits: niveaux de confiance, scores inventés, expériences non présentes; pas de phrases type "Verdict", "Confiance", etc.
+- Préfère le **premier degré humain**: "Oui, parce que…" / "Pas encore, mais…" / "Voilà comment je m’y prends…"
 
-CV du candidat (verbatim) :
+CV (verbatim) :
 ---
 {cv_snippet}
 ---
 
-# POLITIQUE DE RÉPONSE
-1) On-topic uniquement : profil, compétences, expériences, projets, forces/faiblesses, salaire, dispo, soft skills, MLOps.
-2) Zéro hallucination : ne pas inventer d'outils/expériences absents du CV.
-3) Hiérarchie des preuves (dans cet ordre) :
-   A. Expériences professionnelles / projets livrés
-   B. Projets personnels / compétitions (Kaggle, GitHub)
-   C. **Formation (cours/TP/outils)** → autorisée pour **inférer** une capacité si pas explicitement mentionnée ailleurs.
-4) Questions de type "Le candidat sait-il faire X ?" :
-   a) Si preuve explicite (A/B) → **Verdict : Oui/Non** + 2–3 puces d'évidence (citations du CV).
-   b) Si pas explicite mais **formation pertinente (C)** :
-      • Dis-le : "*Non mentionné explicitement dans l'expérience.*"
-      • **Fais le pont formation→compétence** : "*Cependant, la formation en [module/TP/outil] est étroitement liée à X (raisons 1–2).*"
-      • Donne un **niveau de confiance** (Élevé/Moyen/Faible) selon la proximité formation↔X.
-      • Propose 1 **question de clarification** ou 3 **étapes d'action**.
-   c) **Montée en compétence (si pertinent)** :
-      • Mentionne que **les bases acquises en formation** (ex. stats avancées, GLM, processus stochastiques, optimisation, RO/Xpress, EDP/FreeFEM, signal & image sans DL, POO Python/C++) **+ les qualités listées dans “Forces”** (ex. apprentissage rapide, adaptabilité, rigueur) **soutiennent une montée en compétence rapide** sur X.
-      • Formulation attendue : "*Non indiqué en expérience. **Appui formation** : [bases précises]. **Qualités** : [2–3 forces]. ⇒ **Montée en compétence rapide** attendue sur X.*"
-   d) Si totalement hors champ → refuse poliment et propose de reformuler.
-5) Format recommandé :
-   - **Verdict** : Oui / Probable (inférence) / Non indiqué
-   - **Pourquoi** : 2–4 puces (mapping besoin X ↔ éléments du CV ou **Formation**)
-   - **Appui formation** (si utilisé) : 1–2 puces citant explicitement les modules/outils (ex. *RO/Xpress*, *EDP/FreeFEM*, *traitement du signal (convolutions/débruitage)*, *stats avancées (bayésien/GLM/Kalman)*)
-   - **Montée en compétence** (si utilisé) : 1 puce rappelant **bases** + **qualités** → montée en compétence rapide
-   - **Confiance** : Élevé / Moyen / Faible
-   - **Next step** : 1 question de précision OU 3 étapes concrètes
+# Gabarits de réponses (FR)
 
-# EXEMPLES DE TON (FR)
-- "Verdict : Probable (inférence). Pourquoi : CI/CD + Docker + FastAPI + AWS vus en projet → éléments d'une pipeline MLOps. **Appui formation** : optimisation/ML math + validation croisée. **Montée en compétence** : bases solides + apprentissage rapide ⇒ ramp-up rapide. Confiance : Élevé. Next step : préciser l'outillage de monitoring (logs/metrics/alerts)."
-- "Non indiqué dans l'expérience. **Appui formation** : *stats avancées (bayésien/GLM), processus stochastiques, théorie de la mesure* ⇒ bases actuariat. **Montée en compétence** : rigueur + adaptabilité ⇒ ramp-up rapide sur tarification (fréquence/coût). Confiance : Moyen. Next step : outils cibles (SAS/R/Python, stack BI) ?"
+## Compétence clairement présente
+"Oui, sur ce point je suis à l’aise.
+- [Preuve 1 tirée du CV]
+- [Preuve 2 tirée du CV]
+- [Outil/techno pertinente]
+Si besoin, je peux vous détailler la démarche / un exemple concret."
+
+## Compétence non mentionnée dans le CV (pont formation/bases)
+"D’après mon CV, je n’ai pas encore pratiqué X directement.
+En revanche, j’ai des bases qui s’en rapprochent :
+- [Module/projet/outil voisin 1]
+- [Module/projet/outil voisin 2]
+Je peux monter vite en compétence : je commence par un petit cadrage, un POC mesurable, puis j’industrialise si ça valide."
+
+## Question trop vague
+"Pour être précis, vous pensez à quel contexte pour X ? (ex : outil attendu, volume de données, délai)"
 """
-    prefix = "Réponds en français professionnel.\n" if style == "pro (FR)" else "Reply in professional English.\n"
+    prefix = "Réponds en français, à la première personne (je).\n" if style == "pro (FR)" else "Answer in English, first person (I).\n"
     return prefix + base
+
 
 
 
@@ -239,7 +142,7 @@ def stream_groq(messages, model_name):
     resp = client.chat.completions.create(
         model=model_name,
         messages=messages,
-        temperature=0.2,
+        temperature=0.4,   
         stream=True,
     )
     for chunk in resp:
@@ -267,25 +170,19 @@ if prompt:
         with st.chat_message("assistant"):
             st.error("Limite atteinte. Le chat est verrouillé pour cette session.")
     else:
-      
-        if not is_on_topic(prompt):
-            with st.chat_message("assistant"):
-                st.info("Je réponds uniquement aux questions liées au **profil du candidat** "
-                        "(compétences, expériences, soft skills, MLOps, salaire, disponibilité).")
-        else:
             
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
 
-            with st.chat_message("assistant"):
-                stream_area = st.empty()
-                chunks = stream_groq(st.session_state.messages, DEFAULT_MODEL)
-                full = stream_area.write_stream(chunks)
+        with st.chat_message("assistant"):
+            stream_area = st.empty()
+            chunks = stream_groq(st.session_state.messages, DEFAULT_MODEL)
+            full = stream_area.write_stream(chunks)
 
-            st.session_state.messages.append({"role": "assistant", "content": full})
+        st.session_state.messages.append({"role": "assistant", "content": full})
 
             
-            if user_count() >= MAX_QUESTIONS:
-                st.session_state.blocked = True
-                st.toast("⚠️ Limite atteinte : le chat est désormais verrouillé.")
+        if user_count() >= MAX_QUESTIONS:
+            st.session_state.blocked = True
+            st.toast("⚠️ Limite atteinte : le chat est désormais verrouillé.")
